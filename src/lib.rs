@@ -1,3 +1,5 @@
+pub mod cli;
+
 use std::collections::HashMap;
 
 use bitvec::{field::BitField, order::Msb0, slice::BitSlice, vec::BitVec};
@@ -281,12 +283,12 @@ struct ValueBitMap<'a> {
 }
 
 pub fn deserialze_huffman(huff_bytes: &[u8]) -> Vec<u8> {
-    println!("TOTAL HUFF BYTES: {}", huff_bytes.len());
+    // println!("TOTAL HUFF BYTES: {}", huff_bytes.len());
     let total_bits = u8_to_u64(&huff_bytes[0..8]);
     let header_num_bytes = u8_to_u64(&huff_bytes[8..16]);
 
-    println!("TOTAL BITS {}", total_bits);
-    println!("HEADER NUM BYTES {}", header_num_bytes);
+    // println!("TOTAL BITS {}", total_bits);
+    // println!("HEADER NUM BYTES {}", header_num_bytes);
     let mut encoded_map: HashMap<u8, (u8, &[u8])> = HashMap::new();
 
     let mut value_bit_map = ValueBitMap {
@@ -315,8 +317,8 @@ pub fn deserialze_huffman(huff_bytes: &[u8]) -> Vec<u8> {
         idx += 2 + idx_increment as usize;
     }
 
-    println!("encoded_map: {:?}", value_bit_map);
-    println!("final idx: {:?}", idx);
+    // println!("encoded_map: {:?}", value_bit_map);
+    // println!("final idx: {:?}", idx);
 
     let mut decoded_buffer: Vec<u8> = Vec::new();
     let mut cursor = 0;
