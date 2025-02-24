@@ -7,14 +7,11 @@ use huffman_compression::{
 use memmap2::{Mmap, MmapMut};
 
 use std::{
-    env,
-    error::Error,
     ffi::OsString,
     fs::{File, OpenOptions},
     io::Read,
 };
 
-use atty::Stream;
 use clap::Parser;
 
 fn main() {
