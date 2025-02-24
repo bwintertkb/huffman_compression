@@ -1,0 +1,14 @@
+[package]
+name = "huffman_compression"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitvec = "1.0.1"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
