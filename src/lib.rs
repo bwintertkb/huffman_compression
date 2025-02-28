@@ -1,6 +1,6 @@
 pub mod cli;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use bitvec::{field::BitField, order::Msb0, slice::BitSlice, vec::BitVec};
 
@@ -423,6 +423,19 @@ pub fn generate_encode_map(node: Box<HuffNode>) -> HashMap<u8, Encoded> {
     encode_map
 }
 
+/// Build huffman array, this represents the huffman tree, the first index is encoded 1, the next
+/// is 01, the next 001 and so on... until the last one which is encoded 0 (repeated n) where n is
+/// the length of the vector, the least frequent is at the back the most frequent is at the front,
+/// the actual frequency does not matter, only their relative frequency, which is represented by
+/// their position in the buffer
+fn build_huffman_array(mut freq_buffer: FrequencyBuffer) -> Vec<u8> {
+    let mut buffer = VecDeque::new();
+    while let Some((idx, _)) = find_and_pop_min(&mut freq_buffer.0) {
+        buffer.push_front(idx);
+    }
+    buffer.into()
+}
+
 // 00100000, should return 2 for the index of 1, None is returned if no 1 is found
 fn find_bit_index_1_position(byte: u8) -> Option<u8> {
     let mut idx = None;
@@ -465,6 +478,15 @@ mod tests {
         let mut bytes = [0, 0, 0];
         let result = find_and_pop_min(&mut bytes);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn build_small_huffman_tree() {
+        let bytes = [1, 2, 1, 1, 1, 1, 1, 1, 1, 3, 1];
+        let freq_buff = tally_frequency(&bytes);
+        let actual = build_huffman_array(freq_buff);
+        let expected = vec![1, 3, 2];
+        assert_eq!(actual, expected)
     }
 
     #[test]
