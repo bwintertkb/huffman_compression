@@ -1,8 +1,8 @@
 use huffman_compression::{
-    build_huffman_tree,
+    build_huffman_array, build_huffman_tree,
     cli::{validate_inputs, Args, Mode},
-    deserialze_huffman, generate_encode_map, huff_encode_bitvec, serialize_huffman,
-    tally_frequency,
+    deserialze_huffman, encode_huffman_array, generate_encode_map, huff_encode_bitvec,
+    huff_encode_bitvec2, serialize_huffman, serialize_huffman2, tally_frequency,
 };
 use memmap2::{Mmap, MmapMut};
 
@@ -45,10 +45,10 @@ fn main() {
     if args.compress {
         let bytes = buffer.as_slice();
         let freq_buff = tally_frequency(bytes);
-        let huffnode = build_huffman_tree(freq_buff);
-        let encoded_map = generate_encode_map(huffnode.unwrap());
-        let (bit_buffer, total_bits) = huff_encode_bitvec(bytes, &encoded_map);
-        let serialized_buffer = serialize_huffman(&encoded_map, bit_buffer, total_bits);
+        let huffnode = build_huffman_array(freq_buff);
+        let encoded_map = encode_huffman_array(&huffnode);
+        let (bit_buffer, total_bits) = huff_encode_bitvec2(bytes, &encoded_map);
+        let serialized_buffer = serialize_huffman2(&encoded_map, bit_buffer, total_bits);
 
         let base_file_path = match mode {
             Mode::Stdin => args.out_file.as_ref().unwrap(),

@@ -201,6 +201,30 @@ pub fn build_huffman_tree(freq_buffer: FrequencyBuffer) -> Option<Box<HuffNode>>
     current_huff_node
 }
 
+pub fn huff_encode_bitvec2(bytes: &[u8], encoded_map: &HashMap<u8, Encoded2>) -> (Vec<u8>, u64) {
+    let mut final_bits: BitVec<u8, Msb0> = BitVec::with_capacity(bytes.len() / 2);
+    for byte in bytes {
+        let encoded = encoded_map.get(byte).unwrap();
+
+        let num_bits = encoded.num_bits_sequence;
+        // Check if it's the least frequent bit
+        let last_value_1 = encoded.bits[encoded.bits.len() - 1] != 0;
+
+        (0..num_bits - 1).for_each(|_| {
+            final_bits.push(false);
+        });
+
+        if last_value_1 {
+            final_bits.push(true);
+        } else {
+            final_bits.push(false);
+        }
+    }
+
+    let total_bits = final_bits.len();
+    (final_bits.into(), total_bits as u64)
+}
+
 pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded>) -> (Vec<u8>, u64) {
     let mut final_bits: BitVec<u8, Msb0> = BitVec::with_capacity(bytes.len() / 2);
     for byte in bytes {
@@ -231,10 +255,18 @@ pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded>) -> (
     (final_bits.into(), total_bits as u64)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Encoded {
     bits: Vec<u8>,
     shift: u8,
+    original_value: u8,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Encoded2 {
+    bits: Vec<u8>,
+    /// Number of bits in the sequence
+    num_bits_sequence: u8,
     original_value: u8,
 }
 
@@ -249,6 +281,30 @@ fn u64_to_u8(value: u64) -> [u8; 8] {
         (value >> 8) as u8,
         value as u8,
     ]
+}
+
+pub fn serialize_huffman2(
+    encoded_map: &HashMap<u8, Encoded2>,
+    bit_buffer: Vec<u8>,
+    total_bits: u64,
+) -> Vec<u8> {
+    let mut serialized_buffer = u64_to_u8(total_bits).to_vec();
+
+    let mut tmp_buffer = Vec::new();
+
+    for encoded in encoded_map.values() {
+        tmp_buffer.push(encoded.original_value);
+        tmp_buffer.push(encoded.num_bits_sequence);
+        tmp_buffer.extend_from_slice(&encoded.bits);
+    }
+
+    let size_of_header_bytes = tmp_buffer.len() as u64;
+    let size_of_header_arr = u64_to_u8(size_of_header_bytes);
+    serialized_buffer.extend_from_slice(&size_of_header_arr);
+    serialized_buffer.extend(tmp_buffer);
+    serialized_buffer.extend(bit_buffer);
+
+    serialized_buffer
 }
 
 pub fn serialize_huffman(
@@ -428,12 +484,54 @@ pub fn generate_encode_map(node: Box<HuffNode>) -> HashMap<u8, Encoded> {
 /// the length of the vector, the least frequent is at the back the most frequent is at the front,
 /// the actual frequency does not matter, only their relative frequency, which is represented by
 /// their position in the buffer
-fn build_huffman_array(mut freq_buffer: FrequencyBuffer) -> Vec<u8> {
+pub fn build_huffman_array(mut freq_buffer: FrequencyBuffer) -> Vec<u8> {
     let mut buffer = VecDeque::new();
     while let Some((idx, _)) = find_and_pop_min(&mut freq_buffer.0) {
         buffer.push_front(idx);
     }
     buffer.into()
+}
+
+pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded2> {
+    huffman_array
+        .iter()
+        .enumerate()
+        .map(|(idx, value)| {
+            if idx == huffman_array.len() - 1 {
+                return (
+                    *value,
+                    Encoded2 {
+                        bits: vec![0; idx.div_ceil(8)],
+                        num_bits_sequence: idx as u8,
+                        original_value: *value,
+                    },
+                );
+            }
+
+            let div_v = idx / 8;
+
+            if div_v == 0 {
+                (
+                    *value,
+                    Encoded2 {
+                        bits: vec![1 << (7 - idx)],
+                        num_bits_sequence: idx as u8 + 1,
+                        original_value: *value,
+                    },
+                )
+            } else {
+                let shift_amount = idx - (div_v * 8);
+                (
+                    *value,
+                    Encoded2 {
+                        bits: vec![1 << (7 - shift_amount)],
+                        num_bits_sequence: idx as u8 + 1,
+                        original_value: *value,
+                    },
+                )
+            }
+        })
+        .collect()
 }
 
 // 00100000, should return 2 for the index of 1, None is returned if no 1 is found
@@ -481,12 +579,59 @@ mod tests {
     }
 
     #[test]
-    fn build_small_huffman_tree() {
+    fn build_small_huffman_array() {
         let bytes = [1, 2, 1, 1, 1, 1, 1, 1, 1, 3, 1];
         let freq_buff = tally_frequency(&bytes);
         let actual = build_huffman_array(freq_buff);
         let expected = vec![1, 3, 2];
         assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn build_encoded_map_from_huffman_array() {
+        let huff_arr = vec![1, 3, 2];
+        let actual = encode_huffman_array(&huff_arr);
+
+        let mut expected = HashMap::new();
+        expected.insert(
+            1,
+            Encoded2 {
+                bits: vec![1 << 7],
+                num_bits_sequence: 1,
+                original_value: 1,
+            },
+        );
+        expected.insert(
+            3,
+            Encoded2 {
+                bits: vec![1 << 6],
+                num_bits_sequence: 2,
+                original_value: 3,
+            },
+        );
+        expected.insert(
+            2,
+            Encoded2 {
+                bits: vec![0],
+                num_bits_sequence: 2,
+                original_value: 2,
+            },
+        );
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn build_huffman_tree_test_simple_2() {
+        let bytes = [1, 2, 1, 1, 1, 1, 1, 1, 1, 3, 1];
+        let freq_buff = tally_frequency(&bytes);
+        let huffnode = build_huffman_array(freq_buff);
+        let encode_map = encode_huffman_array(&huffnode);
+        let (encoded_buffer, total_bits) = huff_encode_bitvec2(&bytes, &encode_map);
+        let expected_buffer = "1001111111011000";
+        assert_eq!(encoded_buffer_to_string(&encoded_buffer), expected_buffer);
+        let expected_total_bits = 13;
+        assert_eq!(total_bits, expected_total_bits);
     }
 
     #[test]
