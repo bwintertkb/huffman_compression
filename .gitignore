@@ -2,3 +2,6 @@
 
 dna_seq.txt
 *.huff
+*.py
+*.tar
+*.gz

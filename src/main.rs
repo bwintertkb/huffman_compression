@@ -43,7 +43,6 @@ fn main() {
         let encoded_map = encode_huffman_array(&huffnode);
         let (bit_buffer, total_bits) = huff_encode_bitvec(buffer, &encoded_map);
         let serialized_buffer = serialize_huffman(&encoded_map, bit_buffer, total_bits);
-
         let base_file_path = match mode {
             Mode::Stdin => args.out_file.as_ref().unwrap(),
             Mode::FileIO => {
@@ -77,7 +76,7 @@ fn main() {
             base_file_clone.set_extension("");
         }
 
-        let deserialized_bytes = deserialze_huffman(&buffer);
+        let deserialized_bytes = deserialze_huffman(buffer);
 
         write_file(base_file_clone, deserialized_bytes);
     }

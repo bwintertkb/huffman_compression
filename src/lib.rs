@@ -13,7 +13,7 @@ pub mod fs;
 
 use std::collections::{HashMap, VecDeque};
 
-use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec};
+use bitvec::{order::Msb0, vec::BitVec};
 
 #[derive(Debug)]
 pub struct FrequencyBuffer(pub [u64; 256]);
@@ -63,43 +63,20 @@ pub fn find_and_pop_min(freq_buf: &mut [u64]) -> Option<(Idx, Freq)> {
 }
 
 pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded>) -> (Vec<u8>, u64) {
-    let mut ctr = 0;
     let mut final_bits: BitVec<u8, Msb0> = BitVec::with_capacity(bytes.len() / 2);
     for byte in bytes {
         let encoded = encoded_map.get(byte).unwrap();
-
-        let num_bits = encoded.num_bits_sequence;
-        // Check if it's the least frequent bit
-        let last_value_1 = encoded.bits[encoded.bits.len() - 1] != 0;
-
-        (0..num_bits - 1).for_each(|_| {
-            final_bits.push(false);
-        });
-
-        if last_value_1 {
-            final_bits.push(true);
-        } else {
-            final_bits.push(false);
-        }
-
-        ctr += 1;
-
-        if ctr % 10000 == 0 {
-            println!(
-                "PCT Complete: {:.2}",
-                (ctr as f64 / bytes.len() as f64) * 100.0
-            )
-        }
+        final_bits.extend(encoded.bits.iter());
     }
 
     let total_bits = final_bits.len();
-    println!("Total bits: {}", total_bits);
     (final_bits.into(), total_bits as u64)
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Encoded {
-    bits: Vec<u8>,
+    // bits: Vec<u8>,
+    bits: BitVec<u8, Msb0>,
     /// Number of bits in the sequence
     num_bits_sequence: u8,
     original_value: u8,
@@ -130,7 +107,7 @@ pub fn serialize_huffman(
     for encoded in encoded_map.values() {
         tmp_buffer.push(encoded.original_value);
         tmp_buffer.push(encoded.num_bits_sequence);
-        tmp_buffer.extend_from_slice(&encoded.bits);
+        tmp_buffer.push(*encoded.bits.last().unwrap() as u8);
     }
 
     let size_of_header_bytes = tmp_buffer.len() as u64;
@@ -142,66 +119,60 @@ pub fn serialize_huffman(
     serialized_buffer
 }
 
-#[derive(Debug)]
-struct ValueBitMap<'a> {
-    values: Vec<u8>,
-    bits: Vec<&'a BitSlice<u8, Msb0>>,
-    num_bits: Vec<u8>,
+#[derive(Debug, Clone, Copy)]
+struct ValueBitMap {
+    value: u8,
+    ends_in_1: bool,
 }
 
 pub fn deserialze_huffman(huff_bytes: &[u8]) -> Vec<u8> {
     let total_bits = u8_to_u64(&huff_bytes[0..8]);
-    let header_num_bytes = u8_to_u64(&huff_bytes[8..16]);
+    let header_end_byte = 16;
+    let header_num_bytes = u8_to_u64(&huff_bytes[8..header_end_byte]);
 
-    let mut encoded_map: HashMap<u8, (u8, &[u8])> = HashMap::new();
-
-    let mut value_bit_map = ValueBitMap {
-        values: Vec::new(),
-        bits: Vec::new(),
-        num_bits: Vec::new(),
-    };
-    let mut idx = 16;
-    while idx as u64 - 16 < header_num_bytes {
+    let mut map_values = HashMap::new();
+    let mut idx = header_end_byte;
+    let mut max_bits = 0;
+    while idx - header_end_byte < header_num_bytes as usize {
         let value = huff_bytes[idx];
         let encoding_number_of_bits = huff_bytes[idx + 1];
-        let idx_increment = encoding_number_of_bits.div_ceil(8);
+        let ends_in_1 = huff_bytes[idx + 2] != 0;
 
-        value_bit_map.values.push(value);
-        value_bit_map.num_bits.push(encoding_number_of_bits);
-        value_bit_map.bits.push(BitSlice::from_slice(
-            &huff_bytes[idx + 2..idx + 2 + idx_increment as usize],
-        ));
-        encoded_map.insert(
-            value,
-            (
-                encoding_number_of_bits,
-                &huff_bytes[idx + 2..idx + 2 + idx_increment as usize],
-            ),
-        );
-        idx += 2 + idx_increment as usize;
+        max_bits = max_bits.max(encoding_number_of_bits);
+        let value_bit_map = ValueBitMap { value, ends_in_1 };
+
+        map_values
+            .entry(encoding_number_of_bits)
+            .and_modify(|v: &mut Vec<ValueBitMap>| v.push(value_bit_map))
+            .or_insert(vec![value_bit_map]);
+
+        idx += 3
     }
 
     let mut decoded_buffer: Vec<u8> = Vec::new();
-    let mut cursor = 0;
     let bit_vec: BitVec<u8, Msb0> = BitVec::from_slice(&huff_bytes[idx..]);
+    let mut bit_vec_iter = bit_vec.iter();
 
-    while cursor < total_bits {
-        for ((bits, value), num_bits) in value_bit_map
-            .bits
-            .iter()
-            .zip(value_bit_map.values.iter())
-            .zip(value_bit_map.num_bits.iter())
-        {
-            let bit_slice = &bits[..*num_bits as usize];
-            if cursor + *num_bits as u64 > bit_vec.len() as u64 {
-                continue;
-            }
+    let mut bits_to_target = 0;
 
-            let bit_vec_slice = &bit_vec[cursor as usize..cursor as usize + *num_bits as usize];
-            if bit_slice == bit_vec_slice {
-                decoded_buffer.push(*value);
-                cursor += *num_bits as u64;
-                break;
+    let mut read_bits = 0;
+    while read_bits < total_bits {
+        let bit = bit_vec_iter.next().unwrap();
+        if *bit {
+            bits_to_target += 1;
+            // Here I need to do logic to find the number of bits
+            let value_bit_map = map_values.get(&bits_to_target).unwrap();
+            decoded_buffer.push(value_bit_map.iter().find(|v| v.ends_in_1).unwrap().value);
+            read_bits += bits_to_target as u64;
+            bits_to_target = 0;
+        } else {
+            bits_to_target += 1;
+            if bits_to_target >= max_bits {
+                // We hit the least occuring character, now we need to find it
+                let value_bit_map = map_values.get(&bits_to_target).unwrap();
+                decoded_buffer.push(value_bit_map.iter().find(|v| !v.ends_in_1).unwrap().value);
+                read_bits += bits_to_target as u64;
+                bits_to_target = 0
             }
         }
     }
@@ -240,38 +211,35 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded> {
         .enumerate()
         .map(|(idx, value)| {
             if idx == huffman_array.len() - 1 {
+                let bv: BitVec<u8, Msb0> = (0..idx as u8).map(|_| false).collect();
+                let num_bits_sequence = bv.len() as u8;
                 return (
                     *value,
                     Encoded {
-                        bits: vec![0; idx.div_ceil(8)],
-                        num_bits_sequence: idx as u8,
+                        bits: bv,
+                        num_bits_sequence,
                         original_value: *value,
                     },
                 );
             }
 
-            let div_v = idx / 8;
-
-            if div_v == 0 {
-                (
-                    *value,
-                    Encoded {
-                        bits: vec![1 << (7 - idx)],
-                        num_bits_sequence: idx as u8 + 1,
-                        original_value: *value,
-                    },
-                )
-            } else {
-                let shift_amount = idx - (div_v * 8);
-                (
-                    *value,
-                    Encoded {
-                        bits: vec![1 << (7 - shift_amount)],
-                        num_bits_sequence: idx as u8 + 1,
-                        original_value: *value,
-                    },
-                )
-            }
+            let bv: BitVec<u8, Msb0> = (0..idx as u8 + 1)
+                .map(|i| {
+                    if i == idx as u8 {
+                        return true;
+                    }
+                    false
+                })
+                .collect();
+            let num_bits_sequence = bv.len() as u8;
+            (
+                *value,
+                Encoded {
+                    bits: bv,
+                    num_bits_sequence,
+                    original_value: *value,
+                },
+            )
         })
         .collect()
 }
@@ -279,6 +247,7 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitvec::prelude::*;
 
     fn encoded_buffer_to_string(buffer: &[u8]) -> String {
         buffer
@@ -318,26 +287,34 @@ mod tests {
         let actual = encode_huffman_array(&huff_arr);
 
         let mut expected = HashMap::new();
+        let mut bv = bitvec![u8, Msb0;];
+        bv.push(true);
         expected.insert(
             1,
             Encoded {
-                bits: vec![1 << 7],
+                bits: bv,
                 num_bits_sequence: 1,
                 original_value: 1,
             },
         );
+        let mut bv = bitvec![u8, Msb0;];
+        bv.push(false);
+        bv.push(true);
         expected.insert(
             3,
             Encoded {
-                bits: vec![1 << 6],
+                bits: bv,
                 num_bits_sequence: 2,
                 original_value: 3,
             },
         );
+        let mut bv = bitvec![u8, Msb0;];
+        bv.push(false);
+        bv.push(false);
         expected.insert(
             2,
             Encoded {
-                bits: vec![0],
+                bits: bv,
                 num_bits_sequence: 2,
                 original_value: 2,
             },
@@ -360,11 +337,28 @@ mod tests {
     }
 
     #[test]
+    fn serialize_huffman_test() {
+        let bytes = [1, 3, 1, 2];
+        let freq_buff = tally_frequency(&bytes);
+        let huffnode = build_huffman_array(freq_buff);
+        let encode_map = encode_huffman_array(&huffnode);
+        let (encoded_buffer, total_bits) = huff_encode_bitvec(&bytes, &encode_map);
+        let mut serialized_buffer = serialize_huffman(&encode_map, encoded_buffer, total_bits);
+        serialized_buffer.sort();
+        let mut expected = [
+            0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 9, 1, 1, 1, 3, 2, 1, 2, 2, 0, 176,
+        ];
+        expected.sort();
+
+        assert_eq!(serialized_buffer, expected);
+    }
+
+    #[test]
     fn test_deserialize_huffman() {
-        let target = [1, 2, 1, 1, 1, 1, 1, 1, 1, 3, 1];
+        let target = [1, 3, 1, 2];
 
         let serialized_bytes = [
-            0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 9, 2, 2, 64, 3, 2, 0, 1, 1, 128, 191, 200,
+            0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 9, 1, 1, 1, 2, 2, 0, 3, 2, 1, 176,
         ];
 
         let actual = deserialze_huffman(&serialized_bytes);

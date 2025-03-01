@@ -1,6 +1,6 @@
 [package]
 name = "huffc" 
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["BWinter"]
 description = "A CLI tool for Huffman compression and decompression"

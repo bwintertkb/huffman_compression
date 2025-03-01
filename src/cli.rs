@@ -99,10 +99,8 @@ pub fn validate_inputs(args: &Args) -> Result<Mode, HuffErr> {
         }
 
         // If decompression mode is selected, ensure the file has the correct extension.
-        if args.decompress {
-            if path.extension().unwrap() != "huff" {
-                return Err(HuffErr::WrongFileExtension);
-            }
+        if args.decompress && path.extension().unwrap() != "huff" {
+            return Err(HuffErr::WrongFileExtension);
         }
     }
 
