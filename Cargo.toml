@@ -6,8 +6,8 @@ authors = ["BWinter"]
 description = "A CLI tool for Huffman compression and decompression"
 repository = "https://github.com/bwintertkb/huffman_compression"
 license = "MIT"
-keywords = ["compression", "huffman", "cli", "decompression"]
-categories = ["command-line-utilities", "compression", "decompression"]
+keywords = ["compression", "huffman", "cli"]
+categories = ["command-line-utilities", "compression"]
 readme = "README.md"
 
 [dependencies]
