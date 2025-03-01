@@ -1,7 +1,14 @@
 [package]
-name = "huffman_compression"
+name = "huffc" 
 version = "0.1.0"
 edition = "2021"
+authors = ["BWinter"]
+description = "A CLI tool for Huffman compression and decompression"
+repository = "https://github.com/bwintertkb/huffman_compression"
+license = "MIT"
+keywords = ["compression", "huffman", "cli", "decompression"]
+categories = ["command-line-utilities", "compression", "decompression"]
+readme = "README.md"
 
 [dependencies]
 atty = "0.2.14"
@@ -13,5 +20,9 @@ memmap2 = "0.9.5"
 criterion = "0.3"
 
 [[bench]]
-name = "my_benchmark"
+name = "huffc"
 harness = false
+
+[[bin]]
+name="huffc"
+path="src/main.rs"

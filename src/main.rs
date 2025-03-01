@@ -1,4 +1,4 @@
-use huffman_compression::{
+use huffc::{
     build_huffman_array,
     cli::{validate_inputs, Args, Mode},
     deserialze_huffman, encode_huffman_array,
@@ -21,7 +21,7 @@ fn main() {
         }
     };
 
-    let buffer = match mode {
+    let buffer: &'static [u8] = match mode {
         Mode::Stdin => {
             let mut buffer = Vec::new();
             let mut stdin = std::io::stdin();
@@ -29,22 +29,20 @@ fn main() {
                 println!("Failed to read stdin: {}", e);
                 return;
             }
-            buffer
+            Box::leak(buffer.into_boxed_slice())
         }
         Mode::FileIO => {
             let path_buffer = args.input.as_ref().unwrap();
-            let file = File::open(path_buffer).unwrap();
-            let mmap = unsafe { Mmap::map(&file).unwrap() };
-            mmap.to_vec()
+            let mmap = read_file(path_buffer);
+            Box::leak(Box::new(mmap))
         }
     };
 
     if args.compress {
-        let bytes = buffer.as_slice();
-        let freq_buff = tally_frequency(bytes);
+        let freq_buff = tally_frequency(buffer);
         let huffnode = build_huffman_array(freq_buff);
         let encoded_map = encode_huffman_array(&huffnode);
-        let (bit_buffer, total_bits) = huff_encode_bitvec(bytes, &encoded_map);
+        let (bit_buffer, total_bits) = huff_encode_bitvec(buffer, &encoded_map);
         let serialized_buffer = serialize_huffman(&encoded_map, bit_buffer, total_bits);
 
         let base_file_path = match mode {
@@ -80,9 +78,7 @@ fn main() {
             base_file_clone.set_extension("");
         }
 
-        let mmap = read_file(base_file_path);
-
-        let deserialized_bytes = deserialze_huffman(&mmap[..]);
+        let deserialized_bytes = deserialze_huffman(&buffer);
 
         write_file(base_file_clone, deserialized_bytes);
     }

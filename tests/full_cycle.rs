@@ -1,4 +1,4 @@
-use huffman_compression::*;
+use huffc::*;
 
 const FILE_PATH: &str = "./tests/resources/dna_seq_test.txt";
 

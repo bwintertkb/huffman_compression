@@ -101,5 +101,3 @@ impl Display for HuffErr {
 }
 
 impl Error for HuffErr {}
-//
-// struct HuffBufferHandler {}

@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use huffman_compression::tally_frequency;
+use huffc::tally_frequency;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let bytes = b"abcdefghij";
