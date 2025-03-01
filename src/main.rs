@@ -5,9 +5,8 @@ use huffc::{
     fs::{read_file, write_file},
     huff_encode_bitvec, serialize_huffman, tally_frequency,
 };
-use memmap2::Mmap;
 
-use std::{ffi::OsString, fs::File, io::Read};
+use std::{ffi::OsString, io::Read};
 
 use clap::Parser;
 
