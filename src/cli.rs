@@ -1,18 +1,7 @@
-use std::{env, error::Error, fmt::Display, path::PathBuf};
+use std::{error::Error, fmt::Display, path::PathBuf};
 
 use atty::Stream;
 use clap::Parser;
-
-const FLAG_COMPRESS: [&str; 2] = ["-c", "--compress"];
-const FLAG_DECOMPRESS: [&str; 2] = ["-d", "--decompress"];
-const FLAG_FILE_PATH: [&str; 2] = ["-f", "--file"];
-const FLAG_OUTFILE: [&str; 2] = ["-o", "--out-file"];
-
-const COMPRESS_VALUE: u8 = 0b00000001;
-const DECOMPRESS_VALUE: u8 = 0b00000010;
-const FILE_PATH_VALUE: u8 = 0b00000100;
-const OUTFILE_VALUE: u8 = 0b00001000;
-const STDIN_VALUE: u8 = 0b00010000;
 
 #[derive(Debug)]
 pub enum Mode {
@@ -21,7 +10,7 @@ pub enum Mode {
 }
 
 #[derive(Debug, Parser)]
-// #[command(version, Huffman compression tool, long_about=None)]
+#[command(version, about="Huffman compression tool", long_about=None)]
 pub struct Args {
     #[arg(short, long)]
     pub compress: bool,

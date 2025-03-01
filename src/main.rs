@@ -1,16 +1,13 @@
 use huffman_compression::{
     build_huffman_array,
     cli::{validate_inputs, Args, Mode},
-    deserialze_huffman, encode_huffman_array, huff_encode_bitvec, serialize_huffman,
-    tally_frequency,
+    deserialze_huffman, encode_huffman_array,
+    fs::{read_file, write_file},
+    huff_encode_bitvec, serialize_huffman, tally_frequency,
 };
-use memmap2::{Mmap, MmapMut};
+use memmap2::Mmap;
 
-use std::{
-    ffi::OsString,
-    fs::{File, OpenOptions},
-    io::Read,
-};
+use std::{ffi::OsString, fs::File, io::Read};
 
 use clap::Parser;
 
@@ -64,22 +61,7 @@ fn main() {
         let mut write_file_path: OsString = base_file_path.into();
         write_file_path.push(".huff");
 
-        let new_file_path = base_file_path.with_file_name(write_file_path);
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(new_file_path)
-            .unwrap();
-
-        let file_size = serialized_buffer.len();
-        file.set_len(file_size as u64).unwrap();
-
-        let mut mmap = unsafe { MmapMut::map_mut(&file).unwrap() };
-        mmap[..].copy_from_slice(&serialized_buffer);
-
-        mmap.flush().unwrap();
+        write_file(write_file_path, serialized_buffer);
     } else if args.decompress {
         let base_file_path = match mode {
             Mode::Stdin => args.out_file.as_ref().unwrap(),
@@ -98,24 +80,10 @@ fn main() {
             base_file_clone.set_extension("");
         }
 
-        // TODO Make file reads mmaps and make it work when decompressing from stdin
-        let file_contents = std::fs::read(base_file_path).unwrap();
+        let mmap = read_file(base_file_path);
 
-        let deserialized_bytes = deserialze_huffman(&file_contents);
+        let deserialized_bytes = deserialze_huffman(&mmap[..]);
 
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(base_file_clone)
-            .unwrap();
-
-        let file_size = deserialized_bytes.len();
-        file.set_len(file_size as u64).unwrap();
-
-        let mut mmap = unsafe { MmapMut::map_mut(&file).unwrap() };
-        mmap[..].copy_from_slice(&deserialized_bytes);
-        mmap.flush().unwrap();
+        write_file(base_file_clone, deserialized_bytes);
     }
 }

@@ -1,8 +1,9 @@
 pub mod cli;
+pub mod fs;
 
 use std::collections::{HashMap, VecDeque};
 
-use bitvec::{field::BitField, order::Msb0, slice::BitSlice, vec::BitVec};
+use bitvec::{order::Msb0, slice::BitSlice, vec::BitVec};
 
 #[derive(Debug)]
 pub struct FrequencyBuffer(pub [u64; 256]);
