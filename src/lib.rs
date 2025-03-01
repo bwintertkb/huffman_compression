@@ -1,3 +1,13 @@
+//! Huffc Core - Huffman Encoding and Decoding
+//!
+//! This module implements the Huffman encoding and decoding logic,
+//! including frequency analysis, tree construction, and bitwise encoding.
+//!
+//! ## Features
+//! - Computes symbol frequencies efficiently
+//! - Builds a Huffman tree to encode data optimally
+//! - Encodes and decodes data using bitwise representations
+//! - Supports serialization and deserialization of Huffman-encoded data
 pub mod cli;
 pub mod fs;
 
@@ -52,7 +62,7 @@ pub fn find_and_pop_min(freq_buf: &mut [u64]) -> Option<(Idx, Freq)> {
     }
 }
 
-pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded2>) -> (Vec<u8>, u64) {
+pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded>) -> (Vec<u8>, u64) {
     let mut ctr = 0;
     let mut final_bits: BitVec<u8, Msb0> = BitVec::with_capacity(bytes.len() / 2);
     for byte in bytes {
@@ -88,7 +98,7 @@ pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded2>) -> 
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Encoded2 {
+pub struct Encoded {
     bits: Vec<u8>,
     /// Number of bits in the sequence
     num_bits_sequence: u8,
@@ -109,7 +119,7 @@ fn u64_to_u8(value: u64) -> [u8; 8] {
 }
 
 pub fn serialize_huffman(
-    encoded_map: &HashMap<u8, Encoded2>,
+    encoded_map: &HashMap<u8, Encoded>,
     bit_buffer: Vec<u8>,
     total_bits: u64,
 ) -> Vec<u8> {
@@ -224,7 +234,7 @@ pub fn build_huffman_array(mut freq_buffer: FrequencyBuffer) -> Vec<u8> {
     buffer.into()
 }
 
-pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded2> {
+pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded> {
     huffman_array
         .iter()
         .enumerate()
@@ -232,7 +242,7 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded2> {
             if idx == huffman_array.len() - 1 {
                 return (
                     *value,
-                    Encoded2 {
+                    Encoded {
                         bits: vec![0; idx.div_ceil(8)],
                         num_bits_sequence: idx as u8,
                         original_value: *value,
@@ -245,7 +255,7 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded2> {
             if div_v == 0 {
                 (
                     *value,
-                    Encoded2 {
+                    Encoded {
                         bits: vec![1 << (7 - idx)],
                         num_bits_sequence: idx as u8 + 1,
                         original_value: *value,
@@ -255,7 +265,7 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded2> {
                 let shift_amount = idx - (div_v * 8);
                 (
                     *value,
-                    Encoded2 {
+                    Encoded {
                         bits: vec![1 << (7 - shift_amount)],
                         num_bits_sequence: idx as u8 + 1,
                         original_value: *value,
@@ -310,7 +320,7 @@ mod tests {
         let mut expected = HashMap::new();
         expected.insert(
             1,
-            Encoded2 {
+            Encoded {
                 bits: vec![1 << 7],
                 num_bits_sequence: 1,
                 original_value: 1,
@@ -318,7 +328,7 @@ mod tests {
         );
         expected.insert(
             3,
-            Encoded2 {
+            Encoded {
                 bits: vec![1 << 6],
                 num_bits_sequence: 2,
                 original_value: 3,
@@ -326,7 +336,7 @@ mod tests {
         );
         expected.insert(
             2,
-            Encoded2 {
+            Encoded {
                 bits: vec![0],
                 num_bits_sequence: 2,
                 original_value: 2,
