@@ -1,8 +1,8 @@
 use huffman_compression::{
-    build_huffman_array, build_huffman_tree,
+    build_huffman_array,
     cli::{validate_inputs, Args, Mode},
-    deserialze_huffman, encode_huffman_array, generate_encode_map, huff_encode_bitvec,
-    huff_encode_bitvec2, serialize_huffman, serialize_huffman2, tally_frequency,
+    deserialze_huffman, encode_huffman_array, huff_encode_bitvec, serialize_huffman,
+    tally_frequency,
 };
 use memmap2::{Mmap, MmapMut};
 
@@ -35,7 +35,7 @@ fn main() {
             buffer
         }
         Mode::FileIO => {
-            let path_buffer = args.read_file_path.as_ref().unwrap();
+            let path_buffer = args.input.as_ref().unwrap();
             let file = File::open(path_buffer).unwrap();
             let mmap = unsafe { Mmap::map(&file).unwrap() };
             mmap.to_vec()
@@ -47,8 +47,8 @@ fn main() {
         let freq_buff = tally_frequency(bytes);
         let huffnode = build_huffman_array(freq_buff);
         let encoded_map = encode_huffman_array(&huffnode);
-        let (bit_buffer, total_bits) = huff_encode_bitvec2(bytes, &encoded_map);
-        let serialized_buffer = serialize_huffman2(&encoded_map, bit_buffer, total_bits);
+        let (bit_buffer, total_bits) = huff_encode_bitvec(bytes, &encoded_map);
+        let serialized_buffer = serialize_huffman(&encoded_map, bit_buffer, total_bits);
 
         let base_file_path = match mode {
             Mode::Stdin => args.out_file.as_ref().unwrap(),
@@ -56,7 +56,7 @@ fn main() {
                 if let Some(ref out_file) = args.out_file {
                     out_file
                 } else {
-                    args.read_file_path.as_ref().unwrap()
+                    args.input.as_ref().unwrap()
                 }
             }
         };
@@ -87,7 +87,7 @@ fn main() {
                 if let Some(ref out_file) = args.out_file {
                     out_file
                 } else {
-                    args.read_file_path.as_ref().unwrap()
+                    args.input.as_ref().unwrap()
                 }
             }
         };

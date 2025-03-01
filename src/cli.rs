@@ -27,19 +27,15 @@ pub struct Args {
     pub compress: bool,
     #[arg(short, long)]
     pub decompress: bool,
-    #[arg(short, long)]
-    pub read_file_path: Option<PathBuf>,
+    #[arg(short, long, value_name = "INPUT", required = false)]
+    pub input: Option<PathBuf>,
     #[arg(short, long)]
     pub out_file: Option<PathBuf>,
 }
 
 pub fn validate_inputs(args: &Args) -> Result<Mode, HuffErr> {
-    if !args.compress && !args.decompress {
-        return Err(HuffErr::MissingCompressDecompress);
-    }
-
-    if args.compress && args.decompress {
-        return Err(HuffErr::BothCompressDecompress);
+    if !(args.compress ^ args.decompress) {
+        return Err(HuffErr::CompressionFlag);
     }
 
     if !atty::is(Stream::Stdin) {
@@ -51,44 +47,28 @@ pub fn validate_inputs(args: &Args) -> Result<Mode, HuffErr> {
         return Ok(Mode::Stdin);
     }
 
-    if args.read_file_path.is_none() {
+    if args.input.is_none() {
         return Err(HuffErr::NoFilePath);
     }
 
-    if let Some(ref path) = args.read_file_path {
+    if let Some(ref path) = args.input {
         if !path.exists() {
             return Err(HuffErr::FileDoesNotExist);
         }
 
-        if args.decompress && path.extension().unwrap() != "huff" {
-            return Err(HuffErr::WrongFileExtension);
+        if args.decompress {
+            if path.extension().unwrap() != "huff" {
+                return Err(HuffErr::WrongFileExtension);
+            }
+            if !path.exists() {
+                return Err(HuffErr::FileDoesNotExist);
+            }
         }
     }
 
     Ok(Mode::FileIO)
 }
 
-// fn validate_inputs() -> Result<u8, HuffErr> {
-//     let mut args_byte = 0;
-//     if args.any(|arg| FLAG_OUTFILE.contains(&arg.as_str())) {
-//         args_byte |= OUTFILE_VALUE;
-//     }
-//
-//     if !atty::is(Stream::Stdin) {
-//         return Ok(Mode::Stdin);
-//     }
-//
-//     let mut args = env::args();
-//     if args.len() < 2 {
-//         // No args have been found, and no stdin, do not know what to do...
-//         return Err(HuffErr::NoArgs);
-//     }
-//
-//     if !args.any(|arg| FLAG_FILE_PATH.contains(&arg.as_str())) {
-//         return Err(HuffErr::NoFilePath);
-//     }
-// }
-//
 #[derive(Debug)]
 pub enum HuffErr {
     NoArgs,
@@ -97,18 +77,25 @@ pub enum HuffErr {
     WrongFileExtension,
     NoOutfileProvided,
     NoValidArgs,
-    MissingCompressDecompress,
-    BothCompressDecompress,
+    CompressionFlag,
 }
 
 impl Display for HuffErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             HuffErr::NoArgs => write!(f, "No arguments provided. Use --help for more information."),
-            HuffErr::FileDoesNotExist => write!(f, "File does not exist in path provided. Use --help for more information."),
-            HuffErr::WrongFileExtension => write!(f, "File does not have the file extension '.huff'. Use --help for more information."),
-            HuffErr::BothCompressDecompress => write!(f, "Both compress and decompress were set, this is not allowed. Use --help for more information."),
-            HuffErr::MissingCompressDecompress => write!(f, "Missing either compress or decompress. Use --help for more information."),
+            HuffErr::FileDoesNotExist => write!(
+                f,
+                "File does not exist in path provided. Use --help for more information."
+            ),
+            HuffErr::WrongFileExtension => write!(
+                f,
+                "File does not have the file extension '.huff'. Use --help for more information."
+            ),
+            HuffErr::CompressionFlag => write!(
+                f,
+                "Error: You must specify either --compress or --decompress, but not both.",
+            ),
             HuffErr::NoFilePath => {
                 write!(f, "No file path provided. Use --help for more information.")
             }
@@ -116,7 +103,10 @@ impl Display for HuffErr {
                 f,
                 "No valid arguments provided. Use --help for more information."
             ),
-            HuffErr::NoOutfileProvided => write!(f, "No outfile path provided. Use --help for more information.")
+            HuffErr::NoOutfileProvided => write!(
+                f,
+                "No outfile path provided. Use --help for more information."
+            ),
         }
     }
 }
