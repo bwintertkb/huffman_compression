@@ -201,13 +201,7 @@ pub fn deserialze_huffman(huff_bytes: &[u8]) -> Vec<u8> {
 
 fn u8_to_u64(bytes: &[u8]) -> u64 {
     assert!(bytes.len() >= 8);
-    (bytes[0] as u64) << 56
-        | (bytes[1] as u64) << 48
-        | (bytes[2] as u64) << 40
-        | (bytes[3] as u64) << 32
-        | (bytes[4] as u64) << 24
-        | (bytes[5] as u64) << 16
-        | (bytes[6] as u64) << 8
+    ((bytes[0] as u64) << 56) | ((bytes[1] as u64) << 48) | ((bytes[2] as u64) << 40) | ((bytes[3] as u64) << 32) | ((bytes[4] as u64) << 24) | ((bytes[5] as u64) << 16) | ((bytes[6] as u64) << 8)
         | bytes[7] as u64
 }
 
