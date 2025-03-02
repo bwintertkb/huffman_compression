@@ -75,11 +75,10 @@ pub fn huff_encode_bitvec(bytes: &[u8], encoded_map: &HashMap<u8, Encoded>) -> (
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Encoded {
-    // bits: Vec<u8>,
     bits: BitVec<u8, Msb0>,
     /// Number of bits in the sequence
     num_bits_sequence: u8,
-    original_value: u8,
+    value: u8,
 }
 
 fn u64_to_u8(value: u64) -> [u8; 8] {
@@ -105,7 +104,7 @@ pub fn serialize_huffman(
     let mut tmp_buffer = Vec::new();
 
     for encoded in encoded_map.values() {
-        tmp_buffer.push(encoded.original_value);
+        tmp_buffer.push(encoded.value);
         tmp_buffer.push(encoded.num_bits_sequence);
         tmp_buffer.push(*encoded.bits.last().unwrap() as u8);
     }
@@ -125,7 +124,7 @@ struct ValueBitMap {
     ends_in_1: bool,
 }
 
-pub fn deserialze_huffman(huff_bytes: &[u8]) -> Vec<u8> {
+pub fn deserialize_huffman(huff_bytes: &[u8]) -> Vec<u8> {
     let total_bits = u8_to_u64(&huff_bytes[0..8]);
     let header_end_byte = 16;
     let header_num_bytes = u8_to_u64(&huff_bytes[8..header_end_byte]);
@@ -218,7 +217,7 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded> {
                     Encoded {
                         bits: bv,
                         num_bits_sequence,
-                        original_value: *value,
+                        value: *value,
                     },
                 );
             }
@@ -237,7 +236,7 @@ pub fn encode_huffman_array(huffman_array: &[u8]) -> HashMap<u8, Encoded> {
                 Encoded {
                     bits: bv,
                     num_bits_sequence,
-                    original_value: *value,
+                    value: *value,
                 },
             )
         })
@@ -294,7 +293,7 @@ mod tests {
             Encoded {
                 bits: bv,
                 num_bits_sequence: 1,
-                original_value: 1,
+                value: 1,
             },
         );
         let mut bv = bitvec![u8, Msb0;];
@@ -305,7 +304,7 @@ mod tests {
             Encoded {
                 bits: bv,
                 num_bits_sequence: 2,
-                original_value: 3,
+                value: 3,
             },
         );
         let mut bv = bitvec![u8, Msb0;];
@@ -316,7 +315,7 @@ mod tests {
             Encoded {
                 bits: bv,
                 num_bits_sequence: 2,
-                original_value: 2,
+                value: 2,
             },
         );
 
@@ -361,7 +360,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 9, 1, 1, 1, 2, 2, 0, 3, 2, 1, 176,
         ];
 
-        let actual = deserialze_huffman(&serialized_bytes);
+        let actual = deserialize_huffman(&serialized_bytes);
 
         assert_eq!(actual, target);
     }

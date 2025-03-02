@@ -1,7 +1,7 @@
 use huffc::{
     build_huffman_array,
     cli::{validate_inputs, Args, Mode},
-    deserialze_huffman, encode_huffman_array,
+    deserialize_huffman, encode_huffman_array,
     fs::{read_file, write_file},
     huff_encode_bitvec, serialize_huffman, tally_frequency,
 };
@@ -76,7 +76,7 @@ fn main() {
             base_file_clone.set_extension("");
         }
 
-        let deserialized_bytes = deserialze_huffman(buffer);
+        let deserialized_bytes = deserialize_huffman(buffer);
 
         write_file(base_file_clone, deserialized_bytes);
     }

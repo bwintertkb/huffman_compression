@@ -13,7 +13,7 @@ fn serialize_and_deserialize_test() {
     let encoded_map = encode_huffman_array(&huffnode);
     let (bit_buffer, total_bits) = huff_encode_bitvec(bytes, &encoded_map);
     let serialized_buffer = serialize_huffman(&encoded_map, bit_buffer, total_bits);
-    let deserialized_bytes = deserialze_huffman(&serialized_buffer);
+    let deserialized_bytes = deserialize_huffman(&serialized_buffer);
 
     let actual = String::from_utf8_lossy(&deserialized_bytes);
 
